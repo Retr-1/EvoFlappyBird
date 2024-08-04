@@ -13,52 +13,6 @@ float sigmoid(float x) {
 	return 1 / (1 + exp(-x));
 }
 
-struct Node {
-	struct Connection {
-		Node* node;
-		float weight;
-	};
-
-	std::vector<Connection> connections;
-	float value = 0;
-	//should store activation function, but lets assume everywhere will be sigmoid
-
-	Node(std::vector<Node*>& to_connect) {
-		for (Node* node : to_connect) {
-			connections.push_back({ node, random() - 0.5f });
-		}
-	}
-
-	void evaluate() {
-		double sum = 0;
-		for (Connection& c : connections) {
-			sum += c.node->value * c.weight;
-		}
-		value = sigmoid(sum);
-	}
-};
-
-class Layer {
-public:
-	std::vector<Node*> nodes;
-	virtual void evaluate() {};
-};
-
-class DenseLayer : public Layer {
-public:
-	DenseLayer(int count, Layer* prevLayer) {
-		for (int i = 0; i < count; i++) {
-			nodes.push_back(new Node(prevLayer->nodes));
-		}
-	}
-
-	void evaluate() override {
-		for (Node* node : nodes) {
-			node->evaluate();
-		}
-	}
-};
-
 
 class NeuralNetwork {
 	// Dense Neural Network
