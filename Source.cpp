@@ -5,11 +5,9 @@
 #include "Random.h"
 #include "Evolution.h"
 
-
 float sigmoid(float x) {
 	return 1 / (1 + exp(-x));
 }
-
 
 class NeuralNetwork {
 	// Dense Neural Network
@@ -92,7 +90,6 @@ public:
 	}
 };
 
-
 class Bird : public Agent {
 	static const float thrust;
 	static const float gravity;
@@ -107,6 +104,7 @@ public:
 	olc::vf2d pos;
 	olc::vf2d v;
 	float r = 20;
+	bool alive = true;
 	
 
 	Bird(std::vector<int>& brainShape) : brain(brainShape) {}
@@ -156,16 +154,16 @@ public:
 	}
 };
 
-class FlappyBirdEvolution : public Evolution {
-	std::vector<Obstacle> obstacles;
-	std::vector<std::shared_ptr<Bird>> birds;
+class FlappyBirdEvolution : public Evolution<Bird> {
+	const std::vector<std::shared_ptr<Obstacle>>& obstacles;
+	const std::vector<std::shared_ptr<Bird>>& birds = agents;
 
-protected:
+	float totalTime = 0;
 
 public:
 	void draw(olc::PixelGameEngine* canvas) {
 		for (auto& o : obstacles) {
-			o.draw(canvas);
+			o->draw(canvas);
 		}
 		for (auto& b : birds) {
 			b->draw(canvas);
@@ -173,9 +171,7 @@ public:
 	}
 
 	void update(float elapsedTime) override {
-		for (auto& b : birds) {
-			b->update(elapsedTime);
-		}
+		totalTime += elapsedTime;
 	}
 };
 

@@ -10,7 +10,10 @@ public:
 	virtual std::shared_ptr<Agent> intercourse(const std::shared_ptr<Agent>& partner) = 0;
 };
 
+
+template <typename Agent>
 class Evolution {
+protected:
 	std::vector<std::shared_ptr<Agent>> agents;
 	int nAgentsPerGen = 100;
 
@@ -24,17 +27,8 @@ class Evolution {
 		}
 	}
 
-protected:
 	virtual void evaluate(float elapsedTime) {
 
-	}
-
-	virtual std::vector<std::shared_ptr<Agent>> getAgents() {
-		return agents;
-	}
-
-	virtual void addAgent(std::shared_ptr<Agent>& agent) {
-		getAgents().push_back(agent);
 	}
 
 public:
@@ -57,6 +51,10 @@ public:
 
 	virtual void update(float elapsedTime) {
 		evaluate(elapsedTime);
+	}
+
+	void addAgent(Agent& agent) {
+		agents.push_back(std::make_shared<Agent>(agent));
 	}
 };
 
