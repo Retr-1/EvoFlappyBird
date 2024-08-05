@@ -72,7 +72,7 @@ public:
 		}
 	}
 
-	NeuralNetwork intercourse(NeuralNetwork& partner) {
+	NeuralNetwork intercourse(const NeuralNetwork& partner) {
 		NeuralNetwork child(shape);
 		for (int i = 0; i < shape.size() - 1; i++) {
 			for (int j = 0; j < shape[i]; j++) {
@@ -90,7 +90,7 @@ public:
 	}
 };
 
-class Bird : public Agent {
+class Bird {
 	static const float thrust;
 	static const float gravity;
 
@@ -105,11 +105,12 @@ public:
 	olc::vf2d v;
 	float r = 20;
 	bool alive = true;
-	
+	float fitness = 0;
 
-	Bird(std::vector<int>& brainShape) : brain(brainShape) {}
+	Bird(float x, float y, std::vector<int>& brainShape) : brain(brainShape), pos(x,y), v(0,0) {}
+	Bird(float x, float y, const NeuralNetwork& nn) : brain(nn), pos(x,y), v(0,0) {}
 
-	void decideFlap(std::vector<float>& nnInput) {
+	void decide(std::vector<float>& nnInput) {
 		if (brain.evaluate(nnInput)[0] > 0.5f) {
 			flap();
 		}
@@ -124,12 +125,13 @@ public:
 		canvas->FillCircle(pos, r, olc::GREY);
 	}
 
-	void mutate(float chance) override {
+	void mutate(float chance) {
 		brain.mutate(chance);
 	}
 
-	std::shared_ptr<Agent> intercourse(const std::shared_ptr<Agent>& partner) override {
-
+	Bird intercourse(const Bird& partner) {
+		Bird child(pos.x, pos.y, brain.intercourse(partner.brain));
+		return child;
 	}
 };
 const float Bird::thrust = 10;
@@ -138,8 +140,10 @@ const float Bird::gravity = 10;
 class Obstacle {
 public:
 	olc::vi2d pos;
-	int gap = 30;
-	int width = 30;
+	int gap;
+	int width;
+
+	Obstacle(int x = 0, int y = 0, int gap = 30, int width = 30) : pos(x, y), gap(gap), width(width) {}
 
 	void draw(olc::PixelGameEngine* canvas) {
 		canvas->FillRect({ pos.x, 0 }, { width, pos.y - gap });
@@ -154,32 +158,79 @@ public:
 	}
 };
 
-class FlappyBirdEvolution : public Evolution<Bird> {
-	const std::vector<std::shared_ptr<Obstacle>>& obstacles;
-	const std::vector<std::shared_ptr<Bird>>& birds = agents;
 
-	float totalTime = 0;
-
-public:
-	void draw(olc::PixelGameEngine* canvas) {
-		for (auto& o : obstacles) {
-			o->draw(canvas);
-		}
-		for (auto& b : birds) {
-			b->draw(canvas);
-		}
-	}
-
-	void update(float elapsedTime) override {
-		totalTime += elapsedTime;
-	}
-};
 
 // Override base class with your custom functionality
 class Window : public olc::PixelGameEngine
 {
-	const int nAgentsPerGen = 1000;
-	std::vector<std::shared_ptr<Bird>> birds;
+	const int nAgentsPerGen = 100;
+	std::vector<Bird> birds;
+	std::vector<int> brainShape = { 3,6,2 };
+	std::vector<Obstacle> obstacles;
+	float speed = 0.1f;
+	int obstacleGap = 300;
+	int birdX = 50;
+
+	Bird& getWeightedSelection(float fitnessSum) {
+		float chance = 0;
+		float randval = random();
+		for (Bird& b : birds) {
+			chance += b.fitness / fitnessSum;
+			if (randval <= chance) {
+				return b;
+			}
+		}
+	}
+
+	void makeNextGeneration() {
+		float fitnessSum = 0;
+		for (Bird& b : birds) {
+			fitnessSum += b.fitness;
+		}
+
+		std::vector<Bird> nextGen;
+		for (int i = 0; i < nAgentsPerGen; i++) {
+			Bird& parent1 = getWeightedSelection(fitnessSum);
+			Bird& parent2 = getWeightedSelection(fitnessSum);
+			auto child = parent1.intercourse(parent2);
+			child.pos.y = ScreenHeight() / 2;
+			nextGen.emplace_back(child);
+		}
+	}
+
+	void pushObstacle() {
+		const int verGap = 50;
+		const int width = 30;
+		const int start = 200;
+		if (obstacles.size() == 0) {
+			obstacles.emplace_back(Obstacle(start, randint(verGap / 2, ScreenHeight() - verGap / 2), verGap, width));
+		}
+		else {
+			Obstacle& o = obstacles[obstacles.size() - 1];
+			obstacles.emplace_back(Obstacle(o.pos.x + o.width + obstacleGap, randint(verGap / 2, ScreenHeight() - verGap / 2), verGap, width));
+		}
+	}
+
+	void updateObstacles(float elapsedTime) {
+		for (Obstacle& o : obstacles) {
+			o.pos.x -= speed * elapsedTime;
+		}
+		while (obstacles.size() > 0 && obstacles[0].pos.x+obstacles[0].width < 0) {
+			obstacles.erase(obstacles.begin());
+		}
+		while (obstacles.size() == 0 || obstacles[obstacles.size() - 1].pos.x < ScreenWidth()) {
+			pushObstacle();
+		}
+	}
+
+	void draw() {
+		for (Bird& b : birds) {
+			b.draw(this);
+		}
+		for (Obstacle& o : obstacles) {
+			o.draw(this);
+		}
+	}
 
 public:
 	Window()
@@ -191,54 +242,39 @@ public:
 public:
 	bool OnUserCreate() override
 	{
-		// Called once at the start, so create things here
+		for (int i = 0; i < nAgentsPerGen; i++) {
+			birds.emplace_back(Bird(birdX, ScreenHeight() / 2, brainShape));
+		}
+
 		return true;
 	}
 
-	bool OnUserUpdate(float fElapsedTime) override
+	bool OnUserUpdate(float elapsedTime) override
 	{
-		// Called once per frame, draws random coloured pixels
-		for (int x = 0; x < ScreenWidth(); x++)
-			for (int y = 0; y < ScreenHeight(); y++)
-				Draw(x, y, olc::Pixel(rand() % 256, rand() % 256, rand() % 256));
+		Clear(olc::BLACK);
+
+		updateObstacles(elapsedTime);
+		//for (Bird& b : birds) {
+		//	b.update(elapsedTime);
+		//}
+
+		draw();
+
 		return true;
 	}
 };
 
-
-
-
-//class TestBase {
-//public:
-//	std::string sayHello() {
-//		return "yeahhh...";
-//	}
-//};
-//
-//class TestDerived : public TestBase {
-//public:
-//	int sayHello() {
-//		return 69;
-//	}
-//};
-
 int main()
 {
 	srand(time(0));
-
-	//TestDerived td;
-	//TestDerived* tdp = &td;
-	//TestBase* tbp = &td;
-	//tdp->sayHello();
-	//tbp->sayHello();
 	
-	std::vector<int> shape = { 2,3,1 };
-	NeuralNetwork nn(shape);
-	std::vector<float> input = { 0.5f, 0.2f };
-	auto& output = nn.evaluate(input);
+	//std::vector<int> shape = { 2,3,1 };
+	//NeuralNetwork nn(shape);
+	//std::vector<float> input = { 0.5f, 0.2f };
+	//auto& output = nn.evaluate(input);
 
 	Window win;
-	if (win.Construct(256, 240, 4, 4))
+	if (win.Construct(800, 800, 1, 1))
 		win.Start();
 	return 0;
 }
