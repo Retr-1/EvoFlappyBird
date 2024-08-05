@@ -96,10 +96,6 @@ class Bird {
 
 	NeuralNetwork brain;
 
-	void flap() {
-		v += thrust;
-	}
-
 public:
 	olc::vf2d pos;
 	float v = 0;
@@ -112,12 +108,12 @@ public:
 
 	void decide(std::vector<float>& nnInput) {
 		if (brain.evaluate(nnInput)[0] > 0.5f) {
-			flap();
+			v += thrust;
 		}
 	}
 
 	void update(float elapsedTime) {
-		v -= gravity * elapsedTime;
+		v += gravity * elapsedTime;
 		pos.y += v * elapsedTime;
 	}
 
@@ -134,8 +130,8 @@ public:
 		return child;
 	}
 };
-const float Bird::gravity = -1000;
-const float Bird::thrust = 50;
+const float Bird::gravity = 1000;
+const float Bird::thrust = -500;
 
 class Obstacle {
 public:
@@ -165,7 +161,7 @@ class Window : public olc::PixelGameEngine
 {
 	const int nAgentsPerGen = 100;
 	std::vector<Bird> birds;
-	std::vector<int> brainShape = { 3,6,2 };
+	std::vector<int> brainShape = { 4,8,2 };
 	std::vector<Obstacle> obstacles;
 	float speed = 50;
 	int obstacleGap = 300;
@@ -196,6 +192,8 @@ class Window : public olc::PixelGameEngine
 			child.pos.y = ScreenHeight() / 2;
 			nextGen.emplace_back(child);
 		}
+
+		birds = nextGen;
 	}
 
 	void pushObstacle() {
@@ -217,17 +215,16 @@ class Window : public olc::PixelGameEngine
 		}
 		while (obstacles.size() > 0 && obstacles[0].pos.x+obstacles[0].width < 0) {
 			obstacles.erase(obstacles.begin());
-			std::cout << "ERASED\n";
 		}
 		while (obstacles.size() == 0 || obstacles[obstacles.size() - 1].pos.x < ScreenWidth()) {
 			pushObstacle();
-			std::cout << "CRATED\n";
 		}
 	}
 
 	void draw() {
 		for (Bird& b : birds) {
-			b.draw(this);
+			if (b.alive)
+				b.draw(this);
 		}
 		for (Obstacle& o : obstacles) {
 			o.draw(this);
@@ -256,11 +253,40 @@ public:
 		Clear(olc::BLACK);
 
 		updateObstacles(elapsedTime);
+
+		int i = 0;
+		while (obstacles[i].pos.x + obstacles[i].width < birdX - birds[0].r) {
+			i++;
+		}
+		Obstacle& nearest = obstacles[i];
+
+		bool allDead = true;
 		for (Bird& b : birds) {
+			if (!b.alive)
+				continue;
+			
+			allDead = false;
+
+			float distance = nearest.pos.x + nearest.width - (b.pos.x+b.r);
+			distance /= ScreenWidth();
+			float ybpos = b.pos.y / ScreenHeight();
+			float yvel = b.v / (ScreenHeight() * 2);
+			float yppos = nearest.pos.y / ScreenHeight() * 0.98f + 0.01;
+			std::vector<float> input = { ybpos, yvel, distance, yppos };
+			b.decide(input);
 			b.update(elapsedTime);
+			b.fitness += elapsedTime;
+			if (nearest.is_colliding(b) || b.pos.y+b.r < 0 || b.pos.y-b.r > ScreenHeight()) {
+				b.alive = false;
+			}
 		}
 
 		draw();
+
+		if (allDead) {
+			makeNextGeneration();
+			obstacles.clear();
+		}
 
 		return true;
 	}
