@@ -22,7 +22,9 @@
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Evolution.h" />
     <ClInclude Include="olcPixelGameEngine.h" />
+    <ClInclude Include="Random.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
