@@ -97,18 +97,18 @@ class Bird {
 	NeuralNetwork brain;
 
 	void flap() {
-		v.y += thrust;
+		v += thrust;
 	}
 
 public:
 	olc::vf2d pos;
-	olc::vf2d v;
+	float v = 0;
 	float r = 20;
 	bool alive = true;
 	float fitness = 0;
 
-	Bird(float x, float y, std::vector<int>& brainShape) : brain(brainShape), pos(x,y), v(0,0) {}
-	Bird(float x, float y, const NeuralNetwork& nn) : brain(nn), pos(x,y), v(0,0) {}
+	Bird(float x, float y, std::vector<int>& brainShape) : brain(brainShape), pos(x,y) {}
+	Bird(float x, float y, const NeuralNetwork& nn) : brain(nn), pos(x,y) {}
 
 	void decide(std::vector<float>& nnInput) {
 		if (brain.evaluate(nnInput)[0] > 0.5f) {
@@ -117,8 +117,8 @@ public:
 	}
 
 	void update(float elapsedTime) {
-		v.y -= gravity * elapsedTime;
-		pos.y += v.y * elapsedTime;
+		v -= gravity * elapsedTime;
+		pos.y += v * elapsedTime;
 	}
 
 	void draw(olc::PixelGameEngine* canvas) {
@@ -134,20 +134,20 @@ public:
 		return child;
 	}
 };
-const float Bird::thrust = 10;
-const float Bird::gravity = 10;
+const float Bird::gravity = -1000;
+const float Bird::thrust = 50;
 
 class Obstacle {
 public:
-	olc::vi2d pos;
+	olc::vf2d pos;
 	int gap;
 	int width;
 
-	Obstacle(int x = 0, int y = 0, int gap = 30, int width = 30) : pos(x, y), gap(gap), width(width) {}
+	Obstacle(float x = 0, float y = 0, int gap = 30, int width = 30) : pos(x, y), gap(gap), width(width) {}
 
 	void draw(olc::PixelGameEngine* canvas) {
-		canvas->FillRect({ pos.x, 0 }, { width, pos.y - gap });
-		canvas->FillRect({ pos.x, pos.y + gap }, { width, canvas->ScreenHeight() - (pos.y + gap) });
+		canvas->FillRect(olc::vi2d( pos.x, 0 ), olc::vd2d( width, pos.y - gap ));
+		canvas->FillRect(olc::vi2d( pos.x, pos.y + gap ), olc::vd2d( width, canvas->ScreenHeight() - (pos.y + gap) ));
 	}
 
 	bool is_colliding(Bird& bird) {
@@ -167,7 +167,7 @@ class Window : public olc::PixelGameEngine
 	std::vector<Bird> birds;
 	std::vector<int> brainShape = { 3,6,2 };
 	std::vector<Obstacle> obstacles;
-	float speed = 0.1f;
+	float speed = 50;
 	int obstacleGap = 300;
 	int birdX = 50;
 
@@ -217,9 +217,11 @@ class Window : public olc::PixelGameEngine
 		}
 		while (obstacles.size() > 0 && obstacles[0].pos.x+obstacles[0].width < 0) {
 			obstacles.erase(obstacles.begin());
+			std::cout << "ERASED\n";
 		}
 		while (obstacles.size() == 0 || obstacles[obstacles.size() - 1].pos.x < ScreenWidth()) {
 			pushObstacle();
+			std::cout << "CRATED\n";
 		}
 	}
 
@@ -254,9 +256,9 @@ public:
 		Clear(olc::BLACK);
 
 		updateObstacles(elapsedTime);
-		//for (Bird& b : birds) {
-		//	b.update(elapsedTime);
-		//}
+		for (Bird& b : birds) {
+			b.update(elapsedTime);
+		}
 
 		draw();
 
@@ -274,7 +276,7 @@ int main()
 	//auto& output = nn.evaluate(input);
 
 	Window win;
-	if (win.Construct(800, 800, 1, 1))
+	if (win.Construct(1000, 600, 1, 1))
 		win.Start();
 	return 0;
 }
