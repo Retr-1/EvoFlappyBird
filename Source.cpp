@@ -88,6 +88,49 @@ public:
 		}
 		return child;
 	}
+
+	void draw(olc::PixelGameEngine* canvas, int x, int y) {
+		const int nodeR = 10;
+		const int layerGap = 60;
+		const int nodeGap = 40;
+		
+		int biggest = 0;
+		for (int s : shape) {
+			biggest = std::max(biggest, s);
+		}
+
+		int maxHeight = biggest * nodeR * 2 + (biggest - 1) * nodeGap;
+		std::vector<olc::vi2d> positions;
+
+		int sx = x;
+		for (int layer = 0; layer < shape.size(); layer++) {
+			int height = shape[layer] * nodeR * 2 + (shape[layer] - 1) * nodeGap;
+			int sy = y + (maxHeight - height) / 2;
+			for (int n = 0; n < shape[layer]; n++) {
+				canvas->FillCircle({ sx + nodeR, sy + nodeR }, nodeR, olc::GREY);
+				positions.push_back(olc::vi2d(sx + nodeR, sy + nodeR));
+				sy += nodeR * 2 + nodeGap;
+			}
+
+			sx += nodeR * 2 + layerGap;
+		}
+
+		int c = 0;
+		for (int layer = 0; layer < shape.size()-1; layer++) {
+			for (int n = 0; n < shape[layer]; n++) {
+				for (int n2 = 0; n2 < shape[layer + 1]; n2++) {
+					auto& positionA = positions[c + n];
+					auto& positionB = positions[c + shape[layer] + n2];
+					float weight = weights[layer][n][n2];
+					float shade = (weight + 1) / 2 * 255;
+					olc::Pixel color(shade,shade,shade);
+					//std::cout << weight << ' ' << (weight + 1) / 2 * 255 <<' '<< (int)color.g << '\n';
+					canvas->DrawLine(positionA, positionB, color);
+				}
+			}
+			c += shape[layer];
+		}
+	}
 };
 
 class Bird {
@@ -119,6 +162,10 @@ public:
 
 	void draw(olc::PixelGameEngine* canvas) {
 		canvas->FillCircle(pos, r, olc::GREY);
+	}
+
+	void drawBrain(olc::PixelGameEngine* canvas, int x, int y) {
+		brain.draw(canvas, x, y);
 	}
 
 	void mutate(float chance) {
@@ -324,6 +371,7 @@ public:
 			Clear(olc::BLACK);
 			draw();
 			drawStats();
+			birds[0].drawBrain(this, ScreenWidth()-200, 10);
 		}
 
 		return true;
