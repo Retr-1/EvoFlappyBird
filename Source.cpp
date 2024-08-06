@@ -361,7 +361,7 @@ public:
 			}
 
 			if (allDead) {
-				std::cout << "NEXT GENERATION, SCORE: " + std::to_string(genTime) + "\n";
+				std::cout << "GENERATION: " << generation << ", SCORE: " << genTime << "\n";
 				makeNextGeneration();
 				obstacles.clear();
 			}
