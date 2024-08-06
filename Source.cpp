@@ -167,6 +167,9 @@ class Window : public olc::PixelGameEngine
 	int obstacleGap = 300;
 	int birdX = 50;
 	int frameSkips = 1;
+	bool should_draw = true;
+	unsigned generation = 0;
+	float genTime = 0;
 
 	Bird& getWeightedSelection(float fitnessSum) {
 		float chance = 0;
@@ -181,6 +184,9 @@ class Window : public olc::PixelGameEngine
 	}
 
 	void makeNextGeneration() {
+		generation++;
+		genTime = 0;
+
 		float fitnessSum = 0;
 		for (Bird& b : birds) {
 			fitnessSum += b.fitness;
@@ -233,6 +239,11 @@ class Window : public olc::PixelGameEngine
 		}
 	}
 
+	void drawStats() {
+		std::string text = "Generation: " + std::to_string(generation) + "\nFrameSkips: " + std::to_string(frameSkips) + "\nGenBest: " + std::to_string(genTime);
+		DrawString({ 10,10 }, text, olc::RED);
+	}
+
 public:
 	Window()
 	{
@@ -253,19 +264,26 @@ public:
 	bool OnUserUpdate(float ET) override
 	{
 
-		if (GetKey(olc::UP).bPressed) {
+		if (GetKey(olc::UP).bHeld) {
 			frameSkips++;
 			std::cout << "SKIPS: " << frameSkips << '\n';
 		}
-		if (GetKey(olc::DOWN).bPressed) {
+		if (GetKey(olc::DOWN).bHeld && frameSkips > 0) {
 			frameSkips--;
 			std::cout << "SKIPS: " << frameSkips << '\n';
+		}
+		if (GetKey(olc::D).bPressed) {
+			if (should_draw)
+				Clear(olc::BLACK);
+			should_draw = !should_draw;
 		}
 		
 
 		float elapsedTime = 0.01f;
 
 		for (int f = 0; f < frameSkips; f++) {
+			genTime += elapsedTime;
+
 			updateObstacles(elapsedTime);
 
 			int i = 0;
@@ -296,14 +314,17 @@ public:
 			}
 
 			if (allDead) {
+				std::cout << "NEXT GENERATION, SCORE: " + std::to_string(genTime) + "\n";
 				makeNextGeneration();
-				std::cout << "NEXT GENERATION\n";
 				obstacles.clear();
 			}
 		}
 
-		Clear(olc::BLACK);
-		draw();
+		if (should_draw) {
+			Clear(olc::BLACK);
+			draw();
+			drawStats();
+		}
 
 		return true;
 	}
