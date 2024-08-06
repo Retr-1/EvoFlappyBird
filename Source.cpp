@@ -326,7 +326,7 @@ public:
 		}
 		
 
-		float elapsedTime = 0.01f;
+		float elapsedTime = 0.016f;
 
 		for (int f = 0; f < frameSkips; f++) {
 			genTime += elapsedTime;
